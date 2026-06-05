@@ -1,0 +1,11 @@
+# Deps are floor-pinned (>=) by design; no lockfile (local-CI / no-GHA canon).
+# Supply-chain boundary = digest-pinned base image (Dockerfile) + immutable GHCR release tags.
+# Future hardening option: pip install --require-hashes with a generated hashes file.
+fastapi>=0.115.0
+fastmcp>=3.0.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+slowapi>=0.1.9
+prometheus-fastapi-instrumentator>=7.0.0
+httpx>=0.27.0
