@@ -1,0 +1,16 @@
+# Segredos / config local (nunca commitar)
+config/config.json
+!config/config.json.example
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Ferramentas
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/

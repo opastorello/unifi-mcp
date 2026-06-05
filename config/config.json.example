@@ -1,0 +1,43 @@
+{
+  "devices": {
+    "unifi-cloud": {
+      "name": "UniFi Site Manager (conta cloud)",
+      "host": "api.ui.com",
+      "port": 443,
+      "use_tls": true,
+      "api_token": "CHAVE-DO-SITE-MANAGER-aqui",
+      "auth_scheme": "x-api-key",
+      "verify_ssl": true,
+      "timeout": 30,
+      "mode": "read",
+      "kind": "cloud",
+      "tags": ["env:prod", "scope:fleet"]
+    },
+    "console-matriz": {
+      "name": "Console UniFi Matriz (acesso local direto)",
+      "host": "192.168.1.1",
+      "port": 443,
+      "use_tls": true,
+      "api_token": "CHAVE-LOCAL-do-console-aqui",
+      "auth_scheme": "x-api-key",
+      "verify_ssl": false,
+      "timeout": 30,
+      "mode": "read",
+      "kind": "local",
+      "tags": ["site:matriz", "env:prod"]
+    }
+  },
+  "server": {
+    "name": "unifi",
+    "host": "0.0.0.0",
+    "port": 8000
+  },
+  "http": {
+    "timeout": 30,
+    "max_retries": 3,
+    "max_concurrent": 10
+  },
+  "logging": {
+    "level": "INFO"
+  }
+}
