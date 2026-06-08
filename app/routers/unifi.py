@@ -177,10 +177,12 @@ async def offline_devices(request: Request, device_id: str):
     return result
 
 
-@router.get("/{device_id}/isp-metrics", summary="Métricas ISP (latência, banda, perda)")
+@router.get("/{device_id}/isp-metrics", summary="Métricas ISP resumidas por circuito")
 @limiter.limit(_cfg.RATE_LIMIT_DEFAULT)
-async def get_isp_metrics(request: Request, device_id: str, interval: str = "5m"):
-    result = await unifi.get_isp_metrics(device_id, interval)
+async def get_isp_metrics(
+    request: Request, device_id: str, interval: str = "5m", raw: bool = False
+):
+    result = await unifi.get_isp_metrics(device_id, interval, raw)
     _m.rest_calls_total.labels(
         endpoint="/api/unifi/isp-metrics",
         result="invalid" if result.get("erro") else "success",
