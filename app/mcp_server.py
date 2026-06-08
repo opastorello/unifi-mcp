@@ -265,11 +265,21 @@ async def get_isp_metrics(
             examples=["5m"],
         ),
     ] = "5m",
+    raw: Annotated[
+        bool,
+        Field(
+            description="True devolve os frames crus (payload de MBs); default resume por circuito",
+            examples=[False],
+        ),
+    ] = False,
 ) -> dict:
-    """Retorna métricas ISP (latência, banda, perda de pacotes, uptime) via Site Manager."""
+    """Resume métricas ISP por circuito (perda/latência/downtime/banda) via Site Manager.
+
+    Default retorna 1 linha por circuito (pior→melhor) — o payload cru tem MBs. raw=True = frames.
+    """
     with _instrument("get_isp_metrics") as t:
         try:
-            result = await unifi.get_isp_metrics(device_id, interval)
+            result = await unifi.get_isp_metrics(device_id, interval, raw)
         except Exception as exc:
             t.record("error")
             raise ToolError(f"get_isp_metrics falhou: {type(exc).__name__}") from exc

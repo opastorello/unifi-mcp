@@ -41,7 +41,7 @@ _SAFE_INTERVAL = frozenset({"5m", "1h"})
 # ação de cliente — NÃO há block/unblock/reconnect/forget (legado, fora da v1).
 _SAFE_CLIENT_ACTIONS = frozenset({"AUTHORIZE_GUEST_ACCESS", "UNAUTHORIZE_GUEST_ACCESS"})
 
-SERVICE_VERSION = "2.1.0"
+SERVICE_VERSION = "2.1.1"
 
 
 # ── Write gate ─────────────────────────────────────────────────────────────────
@@ -379,10 +379,84 @@ async def list_offline_devices(device_id: str) -> dict:
     return {"total": len(offline), "offline_devices": offline}
 
 
-async def get_isp_metrics(device_id: str, interval: str = "5m") -> dict:
-    """Retorna métricas ISP (latência, banda, perda, uptime) via Site Manager."""
+def _summarize_isp_metrics(data: dict, interval: str) -> dict:
+    """Agrega os períodos crus em 1 RESUMO por circuito (o payload cru é de MBs).
+
+    Cada entrada de `data[]` (1 circuito WAN) tem `periods[]` com `data.wan.{ispName,
+    packetLoss, avgLatency, download_kbps, upload_kbps, downtime, uptime}`. Reduz a
+    uma linha por circuito (média/máx/soma), ordenada do pior pro melhor.
+    """
+    entries = data.get("data") if isinstance(data, dict) else None
+    entries = entries if isinstance(entries, list) else []
+
+    def _avg(xs: list) -> float | None:
+        return round(sum(xs) / len(xs), 2) if xs else None
+
+    circuits = []
+    for e in entries:
+        periods = e.get("periods") or []
+        isp = None
+        loss: list = []
+        lat: list = []
+        dl: list = []
+        up: list = []
+        uptime: list = []
+        downtime = 0.0
+        first = last = None
+        for p in periods:
+            wan = (p.get("data") or {}).get("wan") or {}
+            if not wan:
+                continue
+            isp = wan.get("ispName") or isp
+            mt = p.get("metricTime")
+            if mt:
+                first = first or mt
+                last = mt
+            for key, bucket in (("packetLoss", loss), ("avgLatency", lat),
+                                ("download_kbps", dl), ("upload_kbps", up),
+                                ("uptime", uptime)):
+                val = wan.get(key)
+                if isinstance(val, (int, float)):
+                    bucket.append(val)
+            dt = wan.get("downtime")
+            if isinstance(dt, (int, float)):
+                downtime += dt
+        circuits.append({
+            "isp": isp,
+            "host_id": e.get("hostId"),
+            "site_id": e.get("siteId"),
+            "periods": len(periods),
+            "packet_loss_avg_pct": _avg(loss),
+            "packet_loss_max_pct": max(loss) if loss else None,
+            "downtime_total": round(downtime, 1),  # soma do campo `downtime` (unidade da API)
+            "uptime_avg_pct": _avg(uptime),
+            "latency_avg_ms": _avg(lat),
+            "latency_max_ms": max(lat) if lat else None,
+            "download_max_mbps": round(max(dl) / 1000) if dl else None,
+            "upload_max_mbps": round(max(up) / 1000) if up else None,
+            "window": {"from": first, "to": last},
+        })
+    circuits.sort(
+        key=lambda c: (c.get("downtime_total") or 0, c.get("packet_loss_avg_pct") or 0),
+        reverse=True,
+    )
+    return {
+        "interval": interval,
+        "count": len(circuits),
+        "circuits": circuits,
+        "nota": "resumo por circuito (pior→melhor); raw=True p/ os frames crus (MBs).",
+    }
+
+
+async def get_isp_metrics(device_id: str, interval: str = "5m", raw: bool = False) -> dict:
+    """Retorna métricas ISP RESUMIDAS por circuito via Site Manager (raw=True = frames crus)."""
     ivl = interval if interval in _SAFE_INTERVAL else "5m"
-    return await _http.get_json(device_id, f"/v1/isp-metrics/{ivl}")
+    data = await _http.get_json(device_id, f"/v1/isp-metrics/{ivl}")
+    if isinstance(data, dict) and data.get("erro"):
+        return data
+    if raw:
+        return data
+    return _summarize_isp_metrics(data, ivl)
 
 
 async def list_sdwan_configs(device_id: str) -> dict:
